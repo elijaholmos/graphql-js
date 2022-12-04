@@ -221,8 +221,42 @@ export class Parser {
         TokenKind.SOF,
         this.parseDefinition,
         TokenKind.EOF,
-      ),
+      ).map(this.postParseDefinition.bind(this)),
     });
+  }
+
+  postParseDefinition(
+    node: DefinitionNode,
+    _: number,
+    definitions: Array<DefinitionNode>,
+  ): DefinitionNode {
+    if (!this.nodeDoesInherit(node)) {
+      return node;
+    }
+
+    for (const inheritedNamedTypeNode of node.inherits) {
+      const { value: inheritedName } = inheritedNamedTypeNode.name;
+      const inheritedNode = definitions.find(
+        (n) =>
+          n.kind === Kind.OBJECT_TYPE_DEFINITION &&
+          n.name.value === inheritedName,
+      ) as ObjectTypeDefinitionNode;
+      if (inheritedNode) {
+        node.fields.unshift(...(inheritedNode.fields ?? []));
+      }
+    }
+
+    return node;
+  }
+
+  nodeDoesInherit(node: DefinitionNode): node is ObjectTypeDefinitionNode & {
+    inherits: ReadonlyArray<NamedTypeNode>;
+    fields: Array<FieldDefinitionNode>;
+  } {
+    return (
+      (node as ObjectTypeDefinitionNode)?.inherits !== undefined &&
+      ((node as ObjectTypeDefinitionNode)?.inherits?.length ?? 0) > 0
+    );
   }
 
   /**
@@ -258,6 +292,8 @@ export class Parser {
     const keywordToken = hasDescription
       ? this._lexer.lookahead()
       : this._lexer.token;
+
+    // console.log('keywordToken', keywordToken.kind);
 
     if (keywordToken.kind === TokenKind.NAME) {
       switch (keywordToken.value) {
@@ -855,6 +891,7 @@ export class Parser {
     const description = this.parseDescription();
     this.expectKeyword('type');
     const name = this.parseName();
+    const inherits = this.parseInheritsTypes();
     const interfaces = this.parseImplementsInterfaces();
     const directives = this.parseConstDirectives();
     const fields = this.parseFieldsDefinition();
@@ -863,6 +900,7 @@ export class Parser {
       description,
       name,
       interfaces,
+      inherits,
       directives,
       fields,
     });
@@ -875,6 +913,12 @@ export class Parser {
    */
   parseImplementsInterfaces(): Array<NamedTypeNode> {
     return this.expectOptionalKeyword('implements')
+      ? this.delimitedMany(TokenKind.AMP, this.parseNamedType)
+      : [];
+  }
+
+  parseInheritsTypes(): Array<NamedTypeNode> {
+    return this.expectOptionalKeyword('inherits')
       ? this.delimitedMany(TokenKind.AMP, this.parseNamedType)
       : [];
   }

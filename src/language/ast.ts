@@ -585,9 +585,10 @@ export interface ObjectTypeDefinitionNode {
   readonly loc?: Location;
   readonly description?: StringValueNode;
   readonly name: NameNode;
-  readonly interfaces?: ReadonlyArray<NamedTypeNode>;
-  readonly directives?: ReadonlyArray<ConstDirectiveNode>;
-  readonly fields?: ReadonlyArray<FieldDefinitionNode>;
+  readonly interfaces?: ReadonlyArray<NamedTypeNode> | undefined;
+  readonly inherits?: ReadonlyArray<NamedTypeNode> | undefined;
+  readonly directives?: ReadonlyArray<ConstDirectiveNode> | undefined;
+  readonly fields?: ReadonlyArray<FieldDefinitionNode> | undefined;
 }
 
 export interface FieldDefinitionNode {
